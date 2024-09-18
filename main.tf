@@ -25,11 +25,6 @@ resource "tfe_project" "project01" {
 }
 
 # Step 3: Create 3 workspaces within the organization (without the project attribute)
-variable "workspace_names" {
-  type    = list(string)
-  default = ["workspace1", "workspace2", "workspace3"]
-}
-
 resource "tfe_workspace" "project01_workspaces" {
   for_each     = toset(var.workspace_names)
   name         = each.value
