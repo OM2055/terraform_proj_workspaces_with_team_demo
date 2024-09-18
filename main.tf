@@ -1,47 +1,55 @@
 terraform {
   cloud {
-    organization = var.organization_name
+    organization = var.organization_name  # Replace with your organization
     workspaces {
-      name = "infra-team-workspaces"
+      name = "terraform_proj_workspaces_with_team_demo"
     }
   }
 }
 
 provider "tfe" {
   hostname = "app.terraform.io"
-  token    = var.tfe_token
+  token    = var.tfe_token  # Replace with your Terraform Cloud token
 }
 
-# Step 1: Create the InfraTeam team
-resource "tfe_team" "infra_team" {
-  name         = "InfraTeam"
+# Get the organization details using a data source
+data "tfe_organization" "nmbsproject" {
+  name = var.organization_name
+}
+
+# Create the project
+resource "tfe_project" "nmbsproject" {
+  name         = var.project_name
   organization = var.organization_name
 }
 
-# Step 2: Create the Project01 project
-resource "tfe_project" "project01" {
-  name         = "Project01"
-  organization = var.organization_name
-}
 
-# Step 3: Create 3 workspaces within the organization (without the project attribute)
-resource "tfe_workspace" "project01_workspaces" {
+
+# Create workspaces using for_each
+resource "tfe_workspace" "workspaces" {
   for_each     = toset(var.workspace_names)
-  name         = each.value
+  name         = each.value  # Create workspaces with the names in the list
+  organization = var.organization_name
+  project_id    = tfe_project.nmbsproject.id # Link the workspace to the project
+}
+
+# Step 3: Create a new team
+resource "tfe_team" "nmbs_team" {
+  name         = var.team_name
   organization = var.organization_name
 }
 
-# Step 4: Assign workspaces to the Project01 using tfe_workspace_project_assignment
-resource "tfe_workspace_project_assignment" "project_assignment" {
-  for_each    = tfe_workspace.project01_workspaces
-  workspace_id = each.value.id
-  project_id   = tfe_project.project01.id
+# Step 4: Add permissions for the team to the project
+resource "tfe_team_project_access" "team_project_access" {
+   team_id     = tfe_team.nmbs_team.id
+   project_id  = tfe_project.nmbsproject.id 
+   access      = "admin"
 }
 
-# Step 5: Assign 'admin' access to InfraTeam for each workspace
-resource "tfe_team_access" "infra_team_workspace_access" {
-  for_each     = tfe_workspace.project01_workspaces
-  team_id      = tfe_team.infra_team.id
+# Step 5: Add permissions for the team to each workspace
+resource "tfe_team_access" "team_workspace_access" {
+  for_each   = tfe_workspace.workspaces
+  team_id    = tfe_team.nmbs_team.id
   workspace_id = each.value.id
-  access       = "admin"  # Set access level to 'admin'
+  access     = "admin"
 }
